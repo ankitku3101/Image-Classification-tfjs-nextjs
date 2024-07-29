@@ -1,113 +1,104 @@
-import Image from "next/image";
+'use client';
+import React, { useState, useEffect } from 'react';
+import * as mobilenet from '@tensorflow-models/mobilenet';
+import '@tensorflow/tfjs';
 
 export default function Home() {
+  const [img, setImg] = useState<File | null>(null);
+  const [model, setModel] = useState<mobilenet.MobileNet | null>(null);
+  const [modelLoading, setModelLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
+
+  async function loadModel() {
+    console.log('Model Loading');
+    const mobilenetModel = await mobilenet.load();
+    setModel(mobilenetModel);
+    setModelLoading(false);
+    setProgress(100);
+    console.log('Model Loaded');
+  }
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (modelLoading) {
+      interval = setInterval(() => {
+        setProgress((prev) => (prev < 95 ? prev + 5 : prev));
+      }, 100);
+    }
+
+    loadModel();
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [modelLoading]);
+
+  const handleImgUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const target = event.target;
+    if (!target.files) return;
+    const image = target.files[0];
+    classifyImage(image);
+    setImg(image);
+  };
+
+  async function classifyImage(image: File) {
+    if (!model) {
+      console.error('Model is not loaded yet.');
+      return;
+    }
+
+    const img = new Image();
+    img.src = URL.createObjectURL(image);
+    img.onload = async () => {
+      const predictions = await model.classify(img);
+      const predictionElement = document.getElementById('prediction');
+      if (predictionElement) {
+        predictionElement.innerHTML = `${predictions
+          .map((p) => `${p.className}: ${p.probability.toFixed(2)}%`)
+          .join('<br />')}`;
+      }
+    };
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <div className='flex flex-col justify-center items-center h-screen'>
+      {modelLoading ? (
+        <div className='flex flex-col items-center'>
+          <div className='text-center mb-4'>Loading model, please wait...</div>
+          <div className='w-3/4 bg-gray-200 rounded-full h-2'>
+            <div className='bg-blue-500 h-2 rounded-full' style={{ width: `${progress}%` }}></div>
+          </div>
         </div>
-      </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+      ) : (
+        <>
+          <div className='flex flex-col justify-center items-center -mt-10'>
+            <div className='text-4xl font-semibold'>Image Classification</div>            
+            <div className='text-sm'>Upload an image, and the model will classify what is it</div>            
+            <div className='flex flex-row gap-10 m-10'>
+              <div>
+                  <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-96 h-96 border-gray-300 rounded-xl cursor-pointer bg-gray-50 dark:hover:bg-gray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <svg className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                          </svg>
+                          <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload</span></p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">File type: SVG, PNG or JPG</p>
+                      </div>
+                      <input onChange={handleImgUpload} id="dropzone-file" type="file" className="hidden" />
+                  </label>
+              </div> 
+              <div className=' bg-gray-200 h-96 w-96 border rounded-xl border-gray-300 flex items-center justify-center'>
+                {img && <img src={URL.createObjectURL(img)} alt='upload-preview' style={{ maxWidth: '100%', maxHeight: '100%' }} />}
+              </div>
+            </div>
+            <div className='h-10 text-center'>
+              <div className='text-lg font-semibold'>Predicitions</div>
+              <p id='prediction'></p>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
